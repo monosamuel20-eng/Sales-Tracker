@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eye Media — Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #0C447C;
+    --navy-dark: #042C53;
+    --bg: #F4F6F8;
+    --card: #FFFFFF;
+    --border: #DCE1E6;
+    --text: #1F2937;
+    --muted: #6B7280;
+    --danger: #A32D2D;
+    --danger-bg: #FCEBEB;
+    --success: #27500A;
+    --success-bg: #EAF3DE;
+    --amber: #EF9F27;
+    --amber-bg: #FAEEDA;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 16px;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 18px 24px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { margin: 0; font-size: 19px; font-weight: 600; }
+  header a { color: #cfe3f7; font-size: 13px; text-decoration: none; }
+  header a:hover { text-decoration: underline; }
+  #lastUpdated { font-size: 12px; color: rgba(255,255,255,0.65); }
+
+  .filter-bar {
+    background: var(--navy-dark);
+    padding: 12px 20px;
+    border-radius: 0 0 8px 8px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-bar label { color: rgba(255,255,255,0.7); font-size: 12px; margin-right: 6px; }
+  .filter-bar select {
+    background: #fff; border: none; border-radius: 5px; padding: 6px 8px; font-size: 13px;
+  }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .kpi-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .kpi-value { font-size: 26px; font-weight: 700; margin-top: 6px; color: var(--navy-dark); }
+  .kpi-delta { font-size: 12.5px; margin-top: 4px; font-weight: 600; }
+  .kpi-delta.up { color: var(--success); }
+  .kpi-delta.down { color: var(--danger); }
+  .kpi-delta.flat { color: var(--muted); }
+  .kpi-note { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; color: var(--navy-dark); }
+  .card .sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap.small { height: 200px; }
+
+  .movers-card { border: 1px solid var(--navy); background: linear-gradient(180deg, #fff 0%, #F7FAFD 100%); }
+  .movers-col-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 8px; }
+  .movers-col-title.up { color: var(--success); }
+  .movers-col-title.down { color: var(--danger); }
+  .mover-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .mover-row:last-child { border-bottom: none; }
+  .mover-name { font-weight: 500; }
+  .mover-delta { font-weight: 700; font-size: 13px; white-space: nowrap; margin-left: 10px; }
+  .mover-delta.up { color: var(--success); }
+  .mover-delta.down { color: var(--danger); }
+
+  .empty-state { text-align: center; padding: 30px 10px; color: var(--muted); font-size: 13.5px; }
+  .ssp-note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .loading-banner {
+    text-align: center; padding: 40px; color: var(--muted); font-size: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Eye Media — Sales Dashboard</h1>
+      <a href="index.html">← Back to entry form</a>
+    </div>
+    <div id="lastUpdated">Loading…</div>
+  </header>
+
+  <div class="filter-bar">
+    <div><label>Year</label><select id="filterYear"></select></div>
+    <div><label>View by</label><select id="filterGranularity"><option value="month">Month</option><option value="quarter">Quarter</option></select></div>
+    <div><label>Period</label><select id="filterPeriod"></select></div>
+    <div><label>Salesperson</label><select id="filterSalesperson"><option value="">All</option></select></div>
+  </div>
+
+  <div id="loadingBanner" class="loading-banner">Loading transactions…</div>
+  <div id="dashboardBody" style="display:none;">
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Booked Revenue (USD)</div>
+        <div class="kpi-value" id="kpiRevenue">$0</div>
+        <div class="kpi-delta" id="kpiRevenueDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Deals Booked</div>
+        <div class="kpi-value" id="kpiDeals">0</div>
+        <div class="kpi-delta" id="kpiDealsDelta"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Deal Size</div>
+        <div class="kpi-value" id="kpiAvg">$0</div>
+        <div class="kpi-note">Booked revenue ÷ deals, this period</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Deals Cancelled</div>
+        <div class="kpi-value" id="kpiCancelled">0</div>
+        <div class="kpi-note">Excluded from revenue totals above</div>
+      </div>
+    </div>
+    <div class="ssp-note" id="sspNote"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>Revenue trend — <span id="trendYearLabel"></span></h2>
+      <div class="sub">Monthly booked revenue (USD). Selected period highlighted.</div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <div class="card movers-card">
+      <h2>Top movers</h2>
+      <div class="sub">Client revenue this period vs. the previous period</div>
+      <div class="grid-2" style="margin-bottom:0;">
+        <div>
+          <div class="movers-col-title up">▲ Biggest gains</div>
+          <div id="moversUp"></div>
+        </div>
+        <div>
+          <div class="movers-col-title down">▼ Biggest declines</div>
+          <div id="moversDown"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Revenue by client</h2>
+        <div class="sub">Top clients this period, USD booked revenue</div>
+        <div class="chart-wrap"><canvas id="clientChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Revenue by service</h2>
+        <div class="sub">USD booked revenue this period</div>
+        <div class="chart-wrap"><canvas id="serviceChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Revenue by category</h2>
+      <div class="sub">USD booked revenue this period</div>
+      <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h2>New vs returning</h2>
+        <div class="chart-wrap small"><canvas id="clientTypeChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Acquisition method</h2>
+        <div class="chart-wrap small"><canvas id="acquisitionChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Deal status</h2>
+        <div class="sub">Count of deals, this period</div>
+        <div class="chart-wrap small"><canvas id="statusChart"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script>
+let allTx = [];
+const CHART_COLORS = ['#0C447C', '#3D7DB5', '#EF9F27', '#27500A', '#A32D2D', '#6B7280', '#8AB6D6', '#D9A441'];
+const charts = {};
+
+window.addEventListener('DOMContentLoaded', init);
+
+function init() {
+  if (typeof SCRIPT_URL === 'undefined' || typeof API_KEY === 'undefined') {
+    document.getElementById('loadingBanner').textContent = 'Setup needed: config.js is missing. See index.html for the same issue.';
+    return;
+  }
+  Promise.all([callApi('getAllTransactions', {}), callApi('getFormOptions', {})]).then(function(results) {
+    const txResult = results[0];
+    const optsResult = results[1];
+    if (!Array.isArray(txResult)) {
+      document.getElementById('loadingBanner').textContent = 'Could not load transactions: ' + (txResult && txResult.message || 'unknown error');
+      return;
+    }
+    allTx = txResult;
+    populateSalespersonFilter(optsResult.salesPersons || []);
+    populateYearFilter();
+    populatePeriodOptions();
+    ['filterYear', 'filterGranularity', 'filterPeriod', 'filterSalesperson'].forEach(function(id) {
+      document.getElementById(id).addEventListener('change', function() {
+        if (id === 'filterYear' || id === 'filterGranularity') populatePeriodOptions();
+        render();
+      });
+    });
+    document.getElementById('loadingBanner').style.display = 'none';
+    document.getElementById('dashboardBody').style.display = 'block';
+    document.getElementById('lastUpdated').textContent = 'Loaded ' + new Date().toLocaleString();
+    render();
+  });
+}
+
+function populateSalespersonFilter(people) {
+  const sel = document.getElementById('filterSalesperson');
+  people.forEach(function(p) {
+    const opt = document.createElement('option');
+    opt.value = p.SalesPersonID;
+    opt.textContent = p.Name;
+    sel.appendChild(opt);
+  });
+}
+
+function populateYearFilter() {
+  const years = new Set(allTx.map(function(t) { return t.StartDate ? t.StartDate.slice(0, 4) : null; }).filter(Boolean));
+  const currentYear = String(new Date().getFullYear());
+  years.add(currentYear);
+  const sorted = Array.from(years).sort().reverse();
+  const sel = document.getElementById('filterYear');
+  sel.innerHTML = sorted.map(function(y) { return '<option value="' + y + '">' + y + '</option>'; }).join('');
+  sel.value = currentYear;
+}
+
+function populatePeriodOptions() {
+  const gran = document.getElementById('filterGranularity').value;
+  const sel = document.getElementById('filterPeriod');
+  const year = document.getElementById('filterYear').value;
+  const isCurrentYear = year === String(new Date().getFullYear());
+  const nowMonth = new Date().getMonth() + 1;
+  const nowQuarter = Math.ceil(nowMonth / 3);
+
+  if (gran === 'month') {
+    const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    sel.innerHTML = names.map(function(n, i) { return '<option value="' + (i + 1) + '">' + n + '</option>'; }).join('');
+    sel.value = isCurrentYear ? nowMonth : 1;
+  } else {
+    sel.innerHTML = [1, 2, 3, 4].map(function(q) { return '<option value="' + q + '">Q' + q + '</option>'; }).join('');
+    sel.value = isCurrentYear ? nowQuarter : 1;
+  }
+}
+
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+function periodRange(year, gran, periodVal) {
+  year = Number(year); periodVal = Number(periodVal);
+  if (gran === 'month') {
+    const lastDay = new Date(year, periodVal, 0).getDate();
+    return { start: year + '-' + pad2(periodVal) + '-01', end: year + '-' + pad2(periodVal) + '-' + pad2(lastDay) };
+  }
+  const startMonth = (periodVal - 1) * 3 + 1;
+  const endMonth = startMonth + 2;
+  const lastDay = new Date(year, endMonth, 0).getDate();
+  return { start: year + '-' + pad2(startMonth) + '-01', end: year + '-' + pad2(endMonth) + '-' + pad2(lastDay) };
+}
+
+function previousPeriod(year, gran, periodVal) {
+  year = Number(year); periodVal = Number(periodVal);
+  if (gran === 'month') {
+    return periodVal === 1 ? { year: year - 1, val: 12 } : { year: year, val: periodVal - 1 };
+  }
+  return periodVal === 1 ? { year: year - 1, val: 4 } : { year: year, val: periodVal - 1 };
+}
+
+function inRange(dateStr, range) { return dateStr >= range.start && dateStr <= range.end; }
+
+function sumBy(rows, keyFn, valFn) {
+  const map = {};
+  rows.forEach(function(r) {
+    const k = keyFn(r) || '(Unspecified)';
+    map[k] = (map[k] || 0) + valFn(r);
+  });
+  return map;
+}
+
+function fmtUSD(n) {
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function render() {
+  const year = document.getElementById('filterYear').value;
+  const gran = document.getElementById('filterGranularity').value;
+  const periodVal = document.getElementById('filterPeriod').value;
+  const spFilter = document.getElementById('filterSalesperson').value;
+
+  const range = periodRange(year, gran, periodVal);
+  const prev = previousPeriod(year, gran, periodVal);
+  const prevRange = periodRange(prev.year, gran, prev.val);
+
+  const spScoped = spFilter ? allTx.filter(function(t) { return t.SalesPersonID === spFilter; }) : allTx;
+
+  const currentAll = spScoped.filter(function(t) { return inRange(t.StartDate, range); });
+  const previousAll = spScoped.filter(function(t) { return inRange(t.StartDate, prevRange); });
+  const current = currentAll.filter(function(t) { return !t.Cancelled; });
+  const previous = previousAll.filter(function(t) { return !t.Cancelled; });
+
+  renderKPIs(current, previous, currentAll);
+  renderTrend(year, gran, periodVal, spScoped);
+  renderMovers(current, previous);
+  renderBarChart('clientChart', current, function(t) { return t.ClientName; }, 8);
+  renderBarChart('serviceChart', current, function(t) { return t.ServiceName; }, 8);
+  renderBarChart('categoryChart', current, function(t) { return t.Category; }, 10);
+  renderDoughnut('clientTypeChart', current, function(t) { return t.ClientType; });
+  renderDoughnut('acquisitionChart', current, function(t) { return t.AcquisitionMethod; });
+  renderStatusChart(currentAll);
+}
+
+function renderKPIs(current, previous, currentAll) {
+  const revenue = current.reduce(function(s, t) { return s + t.NetRevenueUSD; }, 0);
+  const prevRevenue = previous.reduce(function(s, t) { return s + t.NetRevenueUSD; }, 0);
+  const deals = current.length;
+  const prevDeals = previous.length;
+  const cancelled = currentAll.filter(function(t) { return t.Cancelled; }).length;
+
+  document.getElementById('kpiRevenue').textContent = fmtUSD(revenue);
+  document.getElementById('kpiDeals').textContent = deals;
+  document.getElementById('kpiAvg').textContent = deals ? fmtUSD(revenue / deals) : '$0';
+  document.getElementById('kpiCancelled').textContent = cancelled;
+
+  setDelta('kpiRevenueDelta', revenue, prevRevenue, fmtUSD);
+  setDelta('kpiDealsDelta', deals, prevDeals, function(n) { return n + ' deals'; });
+
+  const sspRevenue = current.filter(function(t) { return t.Currency === 'SSP'; }).reduce(function(s, t) { return s + t.NetRevenueUSD; }, 0);
+  const sspShare = revenue ? Math.round((sspRevenue / revenue) * 100) : 0;
+  document.getElementById('sspNote').textContent = revenue
+    ? sspShare + '% of this period\u2019s booked revenue originated in SSP, each converted at its own day\u2019s rate — not summed as SSP, for the reasons discussed when this was built.'
+    : '';
+}
+
+function setDelta(elId, curr, prevVal, fmt) {
+  const el = document.getElementById(elId);
+  if (!prevVal) {
+    el.textContent = curr ? 'New — no prior period to compare' : 'No activity yet';
+    el.className = 'kpi-delta flat';
+    return;
+  }
+  const pct = ((curr - prevVal) / prevVal) * 100;
+  const dir = pct > 0.5 ? 'up' : pct < -0.5 ? 'down' : 'flat';
+  const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '—';
+  el.textContent = arrow + ' ' + Math.abs(Math.round(pct)) + '% vs previous period';
+  el.className = 'kpi-delta ' + dir;
+}
+
+function renderTrend(year, gran, periodVal, spScoped) {
+  document.getElementById('trendYearLabel').textContent = year;
+  const monthly = new Array(12).fill(0);
+  spScoped.filter(function(t) { return !t.Cancelled && t.StartDate && t.StartDate.slice(0, 4) === String(year); })
+    .forEach(function(t) { monthly[Number(t.StartDate.slice(5, 7)) - 1] += t.NetRevenueUSD; });
+
+  const highlightRange = periodRange(year, gran, periodVal);
+  const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const colors = labels.map(function(_, i) {
+    const monthStr = String(year) + '-' + pad2(i + 1) + '-15';
+    return inRange(monthStr, highlightRange) ? '#0C447C' : '#B9CEDF';
+  });
+
+  drawChart('trendChart', 'bar', {
+    labels: labels,
+    datasets: [{ data: monthly, backgroundColor: colors, borderRadius: 3 }]
+  }, { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return '$' + v; } } } } });
+}
+
+function renderMovers(current, previous) {
+  const currByClient = sumBy(current, function(t) { return t.ClientName; }, function(t) { return t.NetRevenueUSD; });
+  const prevByClient = sumBy(previous, function(t) { return t.ClientName; }, function(t) { return t.NetRevenueUSD; });
+  const allClients = new Set(Object.keys(currByClient).concat(Object.keys(prevByClient)));
+
+  const deltas = Array.from(allClients).map(function(name) {
+    const c = currByClient[name] || 0, p = prevByClient[name] || 0;
+    return { name: name, delta: c - p };
+  }).filter(function(d) { return Math.abs(d.delta) >= 1; });
+
+  const gains = deltas.filter(function(d) { return d.delta > 0; }).sort(function(a, b) { return b.delta - a.delta; }).slice(0, 3);
+  const declines = deltas.filter(function(d) { return d.delta < 0; }).sort(function(a, b) { return a.delta - b.delta; }).slice(0, 3);
+
+  document.getElementById('moversUp').innerHTML = gains.length
+    ? gains.map(function(d) { return moverRow(d, 'up'); }).join('')
+    : '<div class="empty-state">No gains vs. previous period yet</div>';
+  document.getElementById('moversDown').innerHTML = declines.length
+    ? declines.map(function(d) { return moverRow(d, 'down'); }).join('')
+    : '<div class="empty-state">No declines vs. previous period</div>';
+}
+
+function moverRow(d, dir) {
+  const sign = dir === 'up' ? '+' : '';
+  return '<div class="mover-row"><span class="mover-name">' + d.name + '</span>' +
+    '<span class="mover-delta ' + dir + '">' + sign + fmtUSD(d.delta) + '</span></div>';
+}
+
+function renderBarChart(canvasId, rows, keyFn, topN) {
+  const totals = sumBy(rows, keyFn, function(t) { return t.NetRevenueUSD; });
+  let entries = Object.entries(totals).sort(function(a, b) { return b[1] - a[1]; });
+  if (entries.length > topN) {
+    const rest = entries.slice(topN).reduce(function(s, e) { return s + e[1]; }, 0);
+    entries = entries.slice(0, topN).concat([['Other', rest]]);
+  }
+  drawChart(canvasId, 'bar', {
+    labels: entries.map(function(e) { return e[0]; }),
+    datasets: [{ data: entries.map(function(e) { return Math.round(e[1]); }), backgroundColor: '#0C447C', borderRadius: 3 }]
+  }, {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: { x: { ticks: { callback: function(v) { return '$' + v; } } } }
+  }, entries.length === 0);
+}
+
+function renderDoughnut(canvasId, rows, keyFn) {
+  const totals = sumBy(rows, keyFn, function(t) { return t.NetRevenueUSD; });
+  const entries = Object.entries(totals).sort(function(a, b) { return b[1] - a[1]; });
+  drawChart(canvasId, 'doughnut', {
+    labels: entries.map(function(e) { return e[0]; }),
+    datasets: [{ data: entries.map(function(e) { return Math.round(e[1]); }), backgroundColor: CHART_COLORS }]
+  }, { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }, entries.length === 0);
+}
+
+function renderStatusChart(currentAll) {
+  const counts = sumBy(currentAll, function(t) { return t.effectiveStatus; }, function() { return 1; });
+  const order = ['Ongoing', 'Upcoming', 'Completed', 'Cancelled'];
+  const labels = order.filter(function(k) { return counts[k]; });
+  const statusPalette = { Ongoing: '#0C447C', Upcoming: '#8AB6D6', Completed: '#27500A', Cancelled: '#A32D2D' };
+  drawChart('statusChart', 'doughnut', {
+    labels: labels,
+    datasets: [{ data: labels.map(function(l) { return counts[l]; }), backgroundColor: labels.map(function(l) { return statusPalette[l]; }) }]
+  }, { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }, labels.length === 0);
+}
+
+function drawChart(canvasId, type, data, options, isEmpty) {
+  const canvas = document.getElementById(canvasId);
+  if (charts[canvasId]) { charts[canvasId].destroy(); charts[canvasId] = null; }
+  const wrap = canvas.parentElement;
+  let emptyEl = wrap.querySelector('.empty-state');
+  if (isEmpty) {
+    canvas.style.display = 'none';
+    if (!emptyEl) { emptyEl = document.createElement('div'); emptyEl.className = 'empty-state'; emptyEl.textContent = 'No data for this period'; wrap.appendChild(emptyEl); }
+    return;
+  }
+  canvas.style.display = 'block';
+  if (emptyEl) emptyEl.remove();
+  charts[canvasId] = new Chart(canvas.getContext('2d'), { type: type, data: data, options: Object.assign({ responsive: true, maintainAspectRatio: false }, options) });
+}
+</script>
+</body>
+</html>
